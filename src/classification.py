@@ -1,62 +1,104 @@
+import os
+
 import torch
 from transformers import pipeline
 
-# P-5 Required Categories
-# enkaz bildirimi, yol kapanma bilgisi, acil yardım ihtiyacı, lojistik ihtiyaç bildirimi
+
+DEFAULT_LOCAL_MODEL = os.path.join("models", "2kveri")
+REMOTE_MODEL_ENV = "DISASTER_MODEL_NAME"
+
+# P-5 standardında göstermek istediğimiz üst kategoriler
 CATEGORY_MAPPING = {
-    "Kurtarma": "Enkaz Bildirimi",
+    "Alakasiz": "Alakasız",
+    "Arama Ekipmani": "Acil Yardım İhtiyacı",
+    "Barinma": "Lojistik İhtiyaç Bildirimi",
+    "Cenaze": "Acil Yardım İhtiyacı",
+    "Elektrik Kaynagi": "Acil Yardım İhtiyacı",
+    "Enkaz Kaldirma": "Enkaz Bildirimi",
+    "Giysi": "Lojistik İhtiyaç Bildirimi",
+    "Isinma": "Acil Yardım İhtiyacı",
+    "Lojistik": "Yol Kapanma Bilgisi / Lojistik",
     "Saglik": "Acil Yardım İhtiyacı",
     "Su": "Acil Yardım İhtiyacı",
+    "Tuvalet": "Acil Yardım İhtiyacı",
     "Yemek": "Acil Yardım İhtiyacı",
-    "Barinma": "Lojistik İhtiyaç Bildirimi",
-    "Giysi": "Lojistik İhtiyaç Bildirimi",
-    "Lojistik": "Yol Kapanma Bilgisi / Lojistik", 
-    "Elektronik": "Lojistik İhtiyaç Bildirimi",
-    "Alakasiz": "Alakasız"
 }
 
+
+def _resolve_model_path(model_name=None):
+    if model_name:
+        return model_name
+    if os.path.isdir(DEFAULT_LOCAL_MODEL):
+        return DEFAULT_LOCAL_MODEL
+    remote_model_name = os.getenv(REMOTE_MODEL_ENV)
+    if remote_model_name:
+        return remote_model_name
+    raise ValueError(
+        "Siniflandirma modeli bulunamadi. "
+        f"Yerel olarak '{DEFAULT_LOCAL_MODEL}' klasorunu ekleyin veya "
+        f"{REMOTE_MODEL_ENV} ortam degiskenini Hugging Face model adi ile ayarlayin."
+    )
+
+
+def _normalize_label(label):
+    replacements = str(label).strip().replace("ı", "i").replace("İ", "I")
+    replacements = replacements.replace("ş", "s").replace("Ş", "S")
+    replacements = replacements.replace("ğ", "g").replace("Ğ", "G")
+    replacements = replacements.replace("ü", "u").replace("Ü", "U")
+    replacements = replacements.replace("ö", "o").replace("Ö", "O")
+    replacements = replacements.replace("ç", "c").replace("Ç", "C")
+    return replacements
+
+
 class DisasterClassifier:
-    def __init__(self, model_name="deprem-ml/multilabel_earthquake_tweet_intent_bert_base_turkish_cased"):
+    def __init__(self, model_name=None):
+        self.model_name = _resolve_model_path(model_name)
         device = 0 if torch.cuda.is_available() else -1
-        # The model is multilabel, so top_k=None returns all scores
-        self.classifier = pipeline("text-classification", model=model_name, device=device, top_k=None)
-        
+        # Multilabel modellerde tüm skorları almak için top_k=None kullanıyoruz.
+        self.classifier = pipeline(
+            "text-classification",
+            model=self.model_name,
+            tokenizer=self.model_name,
+            device=device,
+            top_k=None,
+        )
+
     def classify(self, text):
         """
-        Classifies the text and maps it to P-5 standard categories.
-        Returns the top category and its confidence score.
+        Metni sınıflandırır ve P-5 standardındaki üst kategoriye eşler.
+        En yüksek güvene sahip etiketi ve skorunu döndürür.
         """
-        # Protect against empty strings
         if not text or len(text.strip()) < 5:
             return "Alakasız", 0.0
 
         try:
             predictions = self.classifier(text[:512])[0]
-            
-            # predictions is a list of dicts like [{'label': 'Kurtarma', 'score': 0.9}, ...]
-            # Sort by score descending
-            predictions = sorted(predictions, key=lambda x: x['score'], reverse=True)
-            
-            top_pred = predictions[0]
-            raw_label = top_pred['label']
-            score = top_pred['score']
-            
-            # Map to P-5 specific label
-            p5_label = CATEGORY_MAPPING.get(raw_label, "Diğer")
-            
-            # If the highest score is very low, or it's "Alakasiz", return Alakasiz
-            if score < 0.3 or raw_label == "Alakasiz":
-                 return "Alakasız", score
+            predictions = sorted(predictions, key=lambda item: item["score"], reverse=True)
 
-            # Fallback heuristics for custom subcategories
-            if raw_label == "Lojistik" and ("yol" in text.lower() or "kapalı" in text.lower()):
-                p5_label = "Yol Kapanma Bilgisi"
-            elif raw_label == "Lojistik":
-                p5_label = "Lojistik İhtiyaç Bildirimi"
+            top_pred = predictions[0]
+            raw_label = top_pred["label"]
+            normalized_label = _normalize_label(raw_label)
+            score = top_pred["score"]
+
+            lowered_text = text.lower()
+            road_keywords = ["yol", "köprü", "ulasim", "ulaşım", "kapalı", "kapandi", "kapandı", "gecemiyor", "geçemiyor"]
+
+            if normalized_label == "Alakasiz" and any(keyword in lowered_text for keyword in road_keywords):
+                return "Yol Kapanma Bilgisi / Lojistik", max(score, 0.50)
+
+            if score < 0.30 or normalized_label == "Alakasiz":
+                return "Alakasız", score
+
+            p5_label = CATEGORY_MAPPING.get(normalized_label, "Diğer")
+
+            if normalized_label == "Lojistik":
+                if any(keyword in lowered_text for keyword in road_keywords):
+                    p5_label = "Yol Kapanma Bilgisi / Lojistik"
+                else:
+                    p5_label = "Lojistik İhtiyaç Bildirimi"
 
             return p5_label, score
-
-        except Exception as e:
+        except Exception:
             return "Hata", 0.0
 
 if __name__ == "__main__":

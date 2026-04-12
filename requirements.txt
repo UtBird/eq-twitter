@@ -1,0 +1,15 @@
+streamlit
+folium
+streamlit-folium
+pandas
+matplotlib
+seaborn
+wordcloud
+textblob
+transformers
+tqdm
+torch
+torchvision
+nltk
+zeyrek
+geopy

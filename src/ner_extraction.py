@@ -3,6 +3,10 @@ import torch
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 
+
+PLACE_TYPES = {"city", "town", "village", "suburb", "quarter", "neighbourhood"}
+
+
 class LocationExtractor:
     def __init__(self, model_name="yhaslan/turkish-earthquake-tweets-ner"):
         device = 0 if torch.cuda.is_available() else -1
@@ -25,20 +29,50 @@ class LocationExtractor:
         except:
             return []
 
-    def get_coordinates(self, location_text):
+    def _pick_best_location(self, locations):
+        if not locations:
+            return None
+
+        for location in locations:
+            if location.raw.get("type") in PLACE_TYPES:
+                return location
+
+        for location in locations:
+            address_type = location.raw.get("addresstype")
+            if address_type in PLACE_TYPES:
+                return location
+
+        return locations[0]
+
+    def _query_location(self, query):
+        try:
+            locations = self.geocode(query, exactly_one=False, limit=5, addressdetails=True)
+        except Exception:
+            return None
+
+        if not locations:
+            return None
+
+        return self._pick_best_location(locations)
+
+    def get_coordinates(self, location_text, raw_text=None):
         """
         Converts a location string (e.g., "Hatay Antakya") to GPS coordinates.
         Uses progressive fallback if the exact street query fails.
         """
+        normalized_raw_text = (raw_text or "").lower()
+        if "merkez" in normalized_raw_text:
+            merkez_query = f"{location_text} merkez, Turkey"
+            location = self._query_location(merkez_query)
+            if location and location.raw.get("type") in PLACE_TYPES:
+                return [location.latitude, location.longitude]
+
         words = location_text.split()
         while len(words) > 0:
             query = " ".join(words) + ", Turkey"
-            try:
-                location = self.geocode(query)
-                if location:
-                    return [location.latitude, location.longitude]
-            except Exception:
-                pass
+            location = self._query_location(query)
+            if location:
+                return [location.latitude, location.longitude]
             # Remove the last word and try again (e.g. "Hatay Belen geçidi" -> "Hatay Belen")
             words.pop()
             

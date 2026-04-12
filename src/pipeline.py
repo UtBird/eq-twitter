@@ -39,7 +39,7 @@ class DisasterPipeline:
         if locations:
             # Combine extracted locations to form a single query (e.g., "Hatay", "Antakya" -> "Hatay Antakya")
             full_address = " ".join(locations)
-            coords = self.ner_extractor.get_coordinates(full_address)
+            coords = self.ner_extractor.get_coordinates(full_address, raw_text=clean_tx_cased)
             
         # Derive urgency level (1-5) based on category and confidence
         aciliyet = 1
@@ -76,4 +76,3 @@ if __name__ == "__main__":
         print(f"Orijinal: {tw}")
         result = pipeline.process_tweet(tw)
         print(f"Çıktı JSON: {json.dumps(result, ensure_ascii=False, indent=2)}\n")
-

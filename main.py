@@ -1,13 +1,14 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-from wordcloud import WordCloud
-from textblob import TextBlob
-from transformers import pipeline
-from tqdm import tqdm
-import re
 import os
+import re
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
 import torch
+from textblob import TextBlob
+from tqdm import tqdm
+from transformers import pipeline
+from wordcloud import WordCloud
 
 # 1. Konfigürasyon ve Görselleştirme Ayarları
 sns.set_theme(style="whitegrid")
@@ -36,12 +37,29 @@ def is_potential_emergency(text):
     text_lower = text.lower()
     return any(kw in text_lower for kw in EMERGENCY_KEYWORDS)
 
-def classify_disaster_response(texts, model_name="yhaslan/berturk-earthquake-tweets-classification"):
+DEFAULT_MODEL_PATH = os.path.join("models", "2kveri")
+REMOTE_MODEL_ENV = "DISASTER_MODEL_NAME"
+
+
+def classify_disaster_response(texts, model_name=None):
     """yhaslan'ın modelini kullanarak tweetleri sınıflandırır."""
+    if model_name is None:
+        if os.path.isdir(DEFAULT_MODEL_PATH):
+            model_name = DEFAULT_MODEL_PATH
+        else:
+            model_name = os.getenv(REMOTE_MODEL_ENV)
+
+    if not model_name:
+        raise ValueError(
+            "Siniflandirma modeli bulunamadi. "
+            f"'{DEFAULT_MODEL_PATH}' klasorunu ekleyin veya "
+            f"{REMOTE_MODEL_ENV} ortam degiskenini Hugging Face model adi ile ayarlayin."
+        )
+
     print(f"\n--- BERTurk Acil Çağrı Taraması Başlatılıyor ({model_name}) ---")
     
     device = 0 if torch.cuda.is_available() else -1
-    classifier = pipeline("text-classification", model=model_name, device=device)
+    classifier = pipeline("text-classification", model=model_name, tokenizer=model_name, device=device)
     
     results = []
     for text in tqdm(texts, desc="Kritik tweetler analiz ediliyor"):
