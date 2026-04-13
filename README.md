@@ -43,6 +43,8 @@ The classification model is not included in this GitHub repository.
 
 To run the app, download the model files from Hugging Face and place them inside:
 
+Model: https://huggingface.co/Utbird/EqTwitterTr
+
 ```text
 models/2kveri/
 ```
