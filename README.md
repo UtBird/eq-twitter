@@ -1,37 +1,87 @@
-# EQ Twitter Streamlit App
+# EQ Twitter
 
-Bu proje, deprem odakli sosyal medya metinlerini siniflandirip konum cikarmak icin hazirlanmis bir Streamlit uygulamasidir.
+EQ Twitter is a Streamlit application for analyzing earthquake-related social media posts. It classifies incoming text, extracts location entities, and visualizes the detected result on a map.
 
-## Kurulum
+## Features
+
+- Earthquake-related text classification
+- Location extraction with NER
+- Coordinate lookup and map visualization
+- Streamlit interface for quick testing
+
+## Project Structure
+
+```text
+.
+├── app.py
+├── main.py
+├── requirements.txt
+├── src/
+├── models/
+│   └── 2kveri/
+└── notebooks/
+```
+
+## Setup
+
+Create and activate a virtual environment:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
 pip install -r requirements.txt
 ```
 
-## Model Ayari
+## Model Setup
 
-Siniflandirma modeli GitHub reposuna dahil edilmez. Uygulamayi calistirmadan once Hugging Face model adini ortam degiskeni olarak ver:
+The classification model is not included in this GitHub repository.
 
-```bash
-export DISASTER_MODEL_NAME="BURAYA_HUGGINGFACE_MODEL_ADINI_YAZ"
+To run the app, download the model files from Hugging Face and place them inside:
+
+```text
+models/2kveri/
 ```
 
-## Calistirma
+Required files:
+
+- `config.json`
+- `model.safetensors`
+- `tokenizer.json`
+- `tokenizer_config.json`
+
+Hugging Face model link:
+
+- Add your model link here
+
+After downloading, your folder structure should look like this:
+
+```text
+models/
+└── 2kveri/
+    ├── config.json
+    ├── model.safetensors
+    ├── tokenizer.json
+    └── tokenizer_config.json
+```
+
+## Run the App
 
 ```bash
 streamlit run app.py
 ```
 
-Ilk calistirmada NER modeli Hugging Face uzerinden indirilebilir. Siniflandirma modeli de `DISASTER_MODEL_NAME` icindeki Hugging Face repo adindan yuklenir.
+Then open the local Streamlit URL shown in the terminal.
 
-Hugging Face model linki:
+## Notes
 
-- Buraya kendi model linkini ekle
+- The NER model may be downloaded automatically from Hugging Face on first run.
+- The classification model is loaded locally from the `models/2kveri` directory.
 
-## Dataset Kaynagi
-
-Projede kullanilan deprem tweet datasetinin kaynak linki:
+## Dataset Source
 
 - Kaggle: https://www.kaggle.com/datasets/ulkutuncerkucuktas/turkey-earthquake-relief-tweets-dataset
