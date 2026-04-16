@@ -32,6 +32,7 @@ Bu arayüz, sosyal medyadan elde edilen kentsel afet verisinin uçtan uca analiz
 4. **GeoPy** ile çekilen adresi harita koordinatlarına dönüştürür.
 5. Veriyi **Düşük Bant Genişliğine (JSON)** optimize eder.
 """)
+st.caption("Uygulama ilk açılışta model yüklediği için 20-60 saniye bekletebilir. Sayfa boş görünüyorsa terminal logunu ve tarayıcı konsolunu kontrol edin.")
 
 if "selected_sample" not in st.session_state:
     st.session_state.selected_sample = "Lütfen kendi metnini yazını kullanın..."
@@ -42,7 +43,17 @@ if "analysis_result" not in st.session_state:
 if "analysis_error" not in st.session_state:
     st.session_state.analysis_error = None
 
-pipeline = load_pipeline()
+pipeline = None
+pipeline_error = None
+try:
+    pipeline = load_pipeline()
+except Exception as exc:
+    pipeline_error = exc
+
+if pipeline_error:
+    st.error("Pipeline başlatılamadı. Hata detayı aşağıda.")
+    st.exception(pipeline_error)
+    st.stop()
 
 # -- Kullanıcı Arayüzü --
 st.subheader("Simülasyon Verisi Gönder")
@@ -115,8 +126,11 @@ if result:
     # Harita Bölümü
     st.markdown("### 🌍 Varlık Çıkarımı (NER) ve Uzamsal Haritalama")
     coords = result.get("konum")
+    location_text = result.get("konum_metin")
     if coords:
         lat, lon = coords
+        if location_text:
+            st.caption(f"Geocoding sorgusu için kullanılan konum metni: `{location_text}`")
         st.info(f"Metin içerisinden otonom olarak konum çıkartıldı ve Geocoding çalıştırıldı: Enlem: \u200e{lat}, Boylam: \u200e{lon}")
         m = folium.Map(location=coords, zoom_start=15)
         folium.Marker(
@@ -125,6 +139,10 @@ if result:
         st_folium(m, height=400, use_container_width=True)
     else:
         st.info("Bu metin içerisinde açık bir konum bilgisine rastlanmadı veya algoritmalar spesifik bir koordinata çözümleyemedi.")
+
+    location_candidates = result.get("konum_adaylari") or []
+    if location_candidates:
+        st.caption("Çıkarılan konum adayları: " + " | ".join(location_candidates))
 
 st.sidebar.markdown("### Mimari Bileşenler")
 st.sidebar.caption("- Zemberek NLP Modülü (Zeyrek)")

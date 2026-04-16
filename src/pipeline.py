@@ -31,15 +31,15 @@ class DisasterPipeline:
             
         # 3. NER Extraction
         entities = self.ner_extractor.extract_entities(clean_tx_cased)
-        
-        # yhaslan/turkish-earthquake-tweets-ner uses 'ADDR' and 'CITY'
-        locations = [ent['word'] for ent in entities if ent['entity_group'] in ['ADDR', 'CITY']]
-        
+
+        location_candidates = self.ner_extractor.extract_location_candidates(clean_tx_cased, entities)
         coords = None
-        if locations:
-            # Combine extracted locations to form a single query (e.g., "Hatay", "Antakya" -> "Hatay Antakya")
-            full_address = " ".join(locations)
-            coords = self.ner_extractor.get_coordinates(full_address, raw_text=clean_tx_cased)
+        resolved_location_text = None
+        if location_candidates:
+            coords, resolved_location_text = self.ner_extractor.get_coordinates(
+                location_candidates,
+                raw_text=clean_tx_cased,
+            )
             
         # Derive urgency level (1-5) based on category and confidence
         aciliyet = 1
@@ -56,6 +56,8 @@ class DisasterPipeline:
         output = {
             "kategori": category,
             "konum": coords,
+            "konum_metin": resolved_location_text,
+            "konum_adaylari": location_candidates,
             "aciliyet": aciliyet,
             "guven_skoru": float(round(confidence, 3))
         }

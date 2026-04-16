@@ -14,12 +14,10 @@ EQ Twitter is a Streamlit application for analyzing earthquake-related social me
 ```text
 .
 ├── app.py
-├── main.py
 ├── requirements.txt
 ├── src/
 ├── models/
 │   └── 2kveri/
-└── notebooks/
 ```
 
 ## Setup
@@ -83,7 +81,3 @@ Then open the local Streamlit URL shown in the terminal.
 
 - The NER model may be downloaded automatically from Hugging Face on first run.
 - The classification model is loaded locally from the `models/2kveri` directory.
-
-## Dataset Source
-
-- Kaggle: https://www.kaggle.com/datasets/ulkutuncerkucuktas/turkey-earthquake-relief-tweets-dataset
